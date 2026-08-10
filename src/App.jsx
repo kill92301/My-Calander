@@ -487,8 +487,9 @@ const rootStyle = {
 function FontStyle() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,600&family=Noto+Sans+KR:wght@400;500;700&display=swap');
       * { box-sizing: border-box; }
+      html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
       input, textarea, select, button { font-family: 'Noto Sans KR', sans-serif; }
       ::-webkit-scrollbar { width: 0px; height: 0px; }
       input[type="time"], input[type="date"] { color-scheme: light; }
@@ -521,19 +522,19 @@ function CoverPhoto({ photoDataUrl, onPick, onRemove }) {
   };
 
   return (
-    <div style={{ padding: "16px 18px 0" }}>
+    <div>
       {photoDataUrl ? (
-        <div style={{ position: "relative", width: "100%", aspectRatio: "16/10", borderRadius: 20, overflow: "hidden", boxShadow: "0 3px 0 rgba(184,160,120,0.12)" }}>
-          <img src={photoDataUrl} alt="month cover" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div style={{ position: "relative", width: "100%", aspectRatio: "3/1", overflow: "hidden", borderBottom: `1.5px solid ${LINE}` }}>
+          <img src={photoDataUrl} alt="month cover" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           <label
-            style={{ position: "absolute", right: 10, bottom: 10, width: 34, height: 34, borderRadius: 99, background: "rgba(255,255,255,0.92)", boxShadow: "0 2px 6px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            style={{ position: "absolute", right: 12, bottom: 12, width: 34, height: 34, borderRadius: 99, background: "rgba(255,255,255,0.92)", boxShadow: "0 2px 6px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
             <input type="file" accept="image/*" onChange={handleFile} style={hiddenInputStyle} />
             <Pencil size={15} color={INK} />
           </label>
           <button
             onClick={onRemove}
-            style={{ position: "absolute", right: 52, bottom: 10, width: 34, height: 34, borderRadius: 99, border: "none", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}
+            style={{ position: "absolute", right: 54, bottom: 12, width: 34, height: 34, borderRadius: 99, border: "none", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}
           >
             <X size={15} color={INK} />
           </button>
@@ -541,7 +542,7 @@ function CoverPhoto({ photoDataUrl, onPick, onRemove }) {
       ) : (
         <label
           style={{
-            position: "relative", width: "100%", aspectRatio: "16/10", borderRadius: 20, border: `1.5px dashed ${LINE}`,
+            position: "relative", width: "100%", aspectRatio: "3/1", borderBottom: `1.5px dashed ${LINE}`,
             background: "#FFFCF6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             gap: 6, color: SUBINK, cursor: "pointer",
           }}
@@ -573,7 +574,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
           style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", flexDirection: "column" }}
         >
           <span style={{ fontSize: 13, color: SUBINK, letterSpacing: 1 }}>{monthCursor.getFullYear()}</span>
-          <span style={{ fontFamily: "'Gaegu', cursive", fontSize: 34, fontWeight: 700, color: INK, lineHeight: 1.05 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 34, fontWeight: 700, color: INK, lineHeight: 1.05 }}>
             {MONTH_NAMES[monthCursor.getMonth()]}
           </span>
         </button>
@@ -587,7 +588,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
         <button style={iconBtnStyle} onClick={() => goto(-1)} aria-label="이전 달"><ChevronLeft size={18} /></button>
         <button
           onClick={() => setMonthCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
-          style={{ border: `1.5px dashed ${ACCENT}`, background: ACCENT_SOFT, color: "#4E8A7C", borderRadius: 999, padding: "6px 20px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Gaegu', cursive" }}
+          style={{ border: `1.5px dashed ${ACCENT}`, background: ACCENT_SOFT, color: "#4E8A7C", borderRadius: 999, padding: "6px 20px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Playfair Display', serif" }}
         >
           Today
         </button>
@@ -625,7 +626,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
                   <span
                     style={{
                       width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "'Gaegu', cursive", fontSize: 13, fontWeight: isToday ? 700 : 500,
+                      fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: isToday ? 700 : 500,
                       background: isToday ? ACCENT : "transparent",
                       color: isToday ? "#fff" : dow === 0 ? "#E19693" : dow === 6 ? "#8CADD6" : INK,
                     }}
@@ -675,7 +676,7 @@ function MiniMonth({ year, month, onPickMonth, onPickDate, todoDotsFor }) {
     <div style={{ background: "#fff", border: `1.5px solid ${LINE}`, borderRadius: 16, padding: "10px 8px 12px", boxShadow: "0 2px 0 rgba(184,160,120,0.08)" }}>
       <button
         onClick={() => onPickMonth(month)}
-        style={{ background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Gaegu', cursive", fontSize: 15, fontWeight: 700, color: INK, marginBottom: 6, padding: "0 2px" }}
+        style={{ background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: INK, marginBottom: 6, padding: "0 2px" }}
       >
         {MONTH_ABBR[month]}
       </button>
@@ -712,7 +713,7 @@ function YearScreen({ year, setYear, onBack, onPickMonth, onPickDate, todoDotsFo
       <div style={{ padding: "22px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button style={iconBtnStyle} onClick={onBack}><ChevronLeft size={18} /></button>
-          <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 22, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
             <Sparkles size={16} color={ACCENT} /> {year} Overview
           </div>
         </div>
@@ -740,7 +741,7 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.35)" }} />
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: "9%", background: PAPER, borderTopLeftRadius: 22, borderTopRightRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -8px 30px rgba(0,0,0,0.15)" }}>
         <div style={{ padding: "14px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${LINE}` }}>
-          <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 21, fontWeight: 700 }}>{formatDayTitle(iso)}</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, fontWeight: 700 }}>{formatDayTitle(iso)}</div>
           <button style={iconBtnStyle} onClick={onClose}><X size={17} /></button>
         </div>
 
@@ -792,7 +793,7 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
             })}
           </div>
 
-          <div style={{ fontSize: 15, fontFamily: "'Gaegu', cursive", fontWeight: 700, marginBottom: 8, color: INK, display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ fontSize: 15, fontFamily: "'Playfair Display', serif", fontWeight: 700, marginBottom: 8, color: INK, display: "flex", alignItems: "center", gap: 5 }}>
             <Sparkles size={13} color={ACCENT} /> Memo
           </div>
           <textarea
@@ -810,7 +811,7 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
 function SectionHeader({ icon, title, onAdd }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 17, fontFamily: "'Gaegu', cursive", fontWeight: 700, color: ACCENT }}>{icon} {title}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 17, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: ACCENT }}>{icon} {title}</div>
       <button onClick={onAdd} style={{ ...iconBtnStyle, width: 30, height: 30, borderRadius: 10 }}><Plus size={15} /></button>
     </div>
   );
@@ -828,7 +829,7 @@ function ModalShell({ title, onClose, children, footer }) {
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.4)" }} />
       <div style={{ position: "absolute", left: 12, right: 12, top: "50%", transform: "translateY(-50%)", background: "#fff", borderRadius: 22, maxHeight: "84vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.25)", overflow: "hidden" }}>
         <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1.5px dashed ${LINE}` }}>
-          <div style={{ fontSize: 19, fontFamily: "'Gaegu', cursive", fontWeight: 700 }}>{title}</div>
+          <div style={{ fontSize: 19, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>{title}</div>
           <button style={iconBtnStyle} onClick={onClose}><X size={16} /></button>
         </div>
         <div style={{ padding: 18, overflowY: "auto" }}>{children}</div>
@@ -996,10 +997,10 @@ function RoutineScreen({ routines, onBack, onAdd, onEdit }) {
     <div>
       <div style={{ padding: "22px 18px 10px", display: "flex", alignItems: "center", gap: 10 }}>
         <button style={iconBtnStyle} onClick={onBack}><ChevronLeft size={18} /></button>
-        <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 23, fontWeight: 700 }}>Routine</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, fontWeight: 700 }}>Routine</div>
       </div>
       <div style={{ padding: "6px 18px 4px" }}>
-        <button onClick={onAdd} style={{ width: "100%", border: `1.5px dashed ${ACCENT}`, borderRadius: 16, padding: "13px 0", background: ACCENT_SOFT, color: "#4E8A7C", fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "'Gaegu', cursive" }}>
+        <button onClick={onAdd} style={{ width: "100%", border: `1.5px dashed ${ACCENT}`, borderRadius: 16, padding: "13px 0", background: ACCENT_SOFT, color: "#4E8A7C", fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "'Playfair Display', serif" }}>
           <Plus size={16} /> 새 루틴 만들기
         </button>
       </div>
