@@ -480,7 +480,7 @@ const EVENT_BAR_BG = "#F6D8C8";
 const EVENT_BAR_TEXT = "#8C5A3E";
 
 const rootStyle = {
-  maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: PAPER, color: INK,
+  maxWidth: 720, margin: "0 auto", minHeight: "100vh", background: PAPER, color: INK,
   fontFamily: "'Noto Sans KR', sans-serif", position: "relative", paddingBottom: 24,
 };
 
@@ -737,7 +737,7 @@ function YearScreen({ year, setYear, onBack, onPickMonth, onPickDate, todoDotsFo
 /* ================================================================== */
 function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAddEvent, onEditEvent, onAddTodo, onEditTodo, onToggleTodo, expandedTodoId, setExpandedTodoId }) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 40, maxWidth: 460, margin: "0 auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 40, maxWidth: 720, margin: "0 auto" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.35)" }} />
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: "9%", background: PAPER, borderTopLeftRadius: 22, borderTopRightRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -8px 30px rgba(0,0,0,0.15)" }}>
         <div style={{ padding: "14px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${LINE}` }}>
@@ -825,7 +825,7 @@ function EmptyRow({ text }) {
 /* ================================================================== */
 function ModalShell({ title, onClose, children, footer }) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 60, maxWidth: 460, margin: "0 auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, maxWidth: 720, margin: "0 auto" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.4)" }} />
       <div style={{ position: "absolute", left: 12, right: 12, top: "50%", transform: "translateY(-50%)", background: "#fff", borderRadius: 22, maxHeight: "84vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.25)", overflow: "hidden" }}>
         <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1.5px dashed ${LINE}` }}>
@@ -1075,7 +1075,7 @@ function RoutineModal({ mode, routine, onClose, onSave, onRequestDelete }) {
 /* ================================================================== */
 function ConfirmDialog({ title, message, onCancel, onConfirm }) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 80, maxWidth: 460, margin: "0 auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 80, maxWidth: 720, margin: "0 auto" }}>
       <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.45)" }} />
       <div style={{ position: "absolute", left: 24, right: 24, top: "50%", transform: "translateY(-50%)", background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 10px 40px rgba(0,0,0,0.3)" }}>
         <div style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 8 }}>{title}</div>
