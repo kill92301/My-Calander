@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, CalendarDays,
-  ListChecks, Clock, Check, Grid2x2, Sparkles, Camera, Pencil,
+  ListChecks, Clock, Check, Grid2x2, Sparkles, Camera, Pencil, GripVertical,
 } from "lucide-react";
 
 /* ---------------------------------------------------------------------
@@ -72,6 +72,12 @@ const formatDayTitle = (iso) => {
   const d = parseISO(iso);
   return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()} · ${WEEKDAYS[d.getDay()]}`;
 };
+const formatEventBarLabel = (ev) => {
+  if (ev.allDay) return ev.name || "(No title)";
+  const [h, m] = (ev.start || "00:00").split(":").map(Number);
+  const timeLabel = m === 0 ? `${h}시` : `${h}:${String(m).padStart(2, "0")}`;
+  return `[${timeLabel}] ${ev.name || "(No title)"}`;
+};
 
 function getMonthGrid(cursor) {
   const year = cursor.getFullYear();
@@ -130,7 +136,7 @@ function ensureRoutineTodos(routines, todos, rangeStartISO, rangeEndISO) {
       if (r.days.includes(dow) && !r.excludedDates.includes(cursor) && !existingKey.has(`${r.id}__${cursor}`)) {
         additions.push({
           id: `t_${r.id}_${cursor}`, date: cursor, text: r.name, category: r.category,
-          note: r.note || "", done: false, routineId: r.id, overridden: false,
+          note: r.note || "", done: false, routineId: r.id, overridden: false, order: additions.length,
         });
         existingKey.add(`${r.id}__${cursor}`);
       }
@@ -310,6 +316,13 @@ export default function App() {
     });
     setTodoModal(null);
   };
+  const reorderTodos = (iso, orderedIds) => {
+    setData((prev) => {
+      const orderMap = Object.fromEntries(orderedIds.map((id, idx) => [id, idx]));
+      const todos = prev.todos.map((t) => (t.date === iso && orderMap[t.id] !== undefined ? { ...t, order: orderMap[t.id] } : t));
+      return { ...prev, todos };
+    });
+  };
 
   /* ---------------- routines CRUD ---------------- */
   const saveRoutine = (routine) => {
@@ -350,7 +363,7 @@ export default function App() {
 
   /* ---------------- derived ---------------- */
   const eventsFor = useCallback((iso) => data.events.filter((e) => e.date === iso).sort((a, b) => (a.allDay ? -1 : (a.start || "").localeCompare(b.start || ""))), [data.events]);
-  const todosFor = useCallback((iso) => data.todos.filter((t) => t.date === iso), [data.todos]);
+  const todosFor = useCallback((iso) => data.todos.filter((t) => t.date === iso).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [data.todos]);
   const todoDotsFor = useCallback((iso) => {
     const cats = new Set();
     data.todos.filter((t) => t.date === iso).forEach((t) => cats.add(t.category));
@@ -419,9 +432,10 @@ export default function App() {
           onDiaryChange={(text) => setDiary(selectedDate, text)}
           onAddEvent={() => setEventModal({ mode: "add", event: { id: `e_${Date.now()}`, date: selectedDate, name: "", allDay: true, start: "09:00", end: "10:00", memo: "", seriesId: null, overridden: false } })}
           onEditEvent={(ev) => setEventModal({ mode: "edit", event: ev })}
-          onAddTodo={() => setTodoModal({ mode: "add", todo: { id: `t_${Date.now()}`, date: selectedDate, text: "", category: "etc", note: "", done: false, routineId: null, overridden: false } })}
+          onAddTodo={() => setTodoModal({ mode: "add", todo: { id: `t_${Date.now()}`, date: selectedDate, text: "", category: "etc", note: "", done: false, routineId: null, overridden: false, order: Date.now() } })}
           onEditTodo={(t) => setTodoModal({ mode: "edit", todo: t })}
           onToggleTodo={toggleTodoDone}
+          onReorderTodos={reorderTodos}
           expandedTodoId={expandedTodoId}
           setExpandedTodoId={setExpandedTodoId}
         />
@@ -470,14 +484,14 @@ export default function App() {
 /* ================================================================== */
 /* styling constants                                                   */
 /* ================================================================== */
-const PAPER = "#FDF8EF";
-const INK = "#4A4038";
-const SUBINK = "#A69A85";
-const ACCENT = "#7BBCAE";
-const ACCENT_SOFT = "#EAF5F2";
-const LINE = "#F0E6D2";
-const EVENT_BAR_BG = "#F6D8C8";
-const EVENT_BAR_TEXT = "#8C5A3E";
+const PAPER = "#ECE8E7";
+const INK = "#3A3530";
+const SUBINK = "#948C82";
+const ACCENT = "#685143";
+const ACCENT_SOFT = "#E2DAD2";
+const LINE = "#DAD3CA";
+const EVENT_BAR_BG = "#DED2C6";
+const EVENT_BAR_TEXT = "#5C4636";
 
 const rootStyle = {
   maxWidth: 720, margin: "0 auto", minHeight: "100vh", background: PAPER, color: INK,
@@ -489,18 +503,18 @@ function FontStyle() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,600&family=Noto+Sans+KR:wght@400;500;700&display=swap');
       * { box-sizing: border-box; }
-      html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+      html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; accent-color: #685143; }
       input, textarea, select, button { font-family: 'Noto Sans KR', sans-serif; }
       ::-webkit-scrollbar { width: 0px; height: 0px; }
-      input[type="time"], input[type="date"] { color-scheme: light; }
+      input[type="time"], input[type="date"] { color-scheme: light; accent-color: #685143; }
     `}</style>
   );
 }
 
 const iconBtnStyle = {
-  width: 38, height: 38, borderRadius: 14, border: `1.5px solid ${LINE}`,
-  background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-  cursor: "pointer", color: INK, boxShadow: "0 2px 0 rgba(184,160,120,0.15)", flexShrink: 0,
+  width: 38, height: 38, border: "none", background: "transparent",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  cursor: "pointer", color: ACCENT, boxShadow: "none", flexShrink: 0,
 };
 
 /* ================================================================== */
@@ -588,7 +602,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
         <button style={iconBtnStyle} onClick={() => goto(-1)} aria-label="이전 달"><ChevronLeft size={18} /></button>
         <button
           onClick={() => setMonthCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
-          style={{ border: `1.5px dashed ${ACCENT}`, background: ACCENT_SOFT, color: "#4E8A7C", borderRadius: 999, padding: "6px 20px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Playfair Display', serif" }}
+          style={{ border: `1.5px dashed ${ACCENT}`, background: ACCENT_SOFT, color: ACCENT, borderRadius: 999, padding: "6px 20px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Playfair Display', serif" }}
         >
           Today
         </button>
@@ -644,7 +658,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
                         overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600,
                       }}
                     >
-                      {ev.name || "(No title)"}
+                      {formatEventBarLabel(ev)}
                     </span>
                   ))}
                   {dayEvents.length > 2 && (
@@ -733,9 +747,102 @@ function YearScreen({ year, setYear, onBack, onPickMonth, onPickDate, todoDotsFo
 }
 
 /* ================================================================== */
+/* Draggable to-do list (touch-friendly reorder, no external library)   */
+/* ================================================================== */
+function DraggableTodoList({ todos, onReorder, renderRow }) {
+  const [order, setOrder] = useState(() => todos.map((t) => t.id));
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const rowRefs = useRef({});
+  const startYRef = useRef(0);
+  const startOrderRef = useRef([]);
+  const rowHeightRef = useRef(64);
+
+  const idsKey = todos.map((t) => t.id).join(",");
+  useEffect(() => {
+    setOrder(todos.map((t) => t.id));
+  }, [idsKey]);
+
+  const todoById = {};
+  todos.forEach((t) => { todoById[t.id] = t; });
+
+  useEffect(() => {
+    if (!draggingId) return;
+
+    const handleMove = (e) => {
+      const clientY = e.clientY;
+      const delta = clientY - startYRef.current;
+      setDragOffset(delta);
+      const heights = startOrderRef.current.map((id) => (rowRefs.current[id] ? rowRefs.current[id].offsetHeight + 8 : rowHeightRef.current));
+      const avgHeight = heights.reduce((a, b) => a + b, 0) / (heights.length || 1) || rowHeightRef.current;
+      const startIndex = startOrderRef.current.indexOf(draggingId);
+      let newIndex = startIndex + Math.round(delta / avgHeight);
+      newIndex = Math.max(0, Math.min(startOrderRef.current.length - 1, newIndex));
+      setOrder((prev) => {
+        const currentIndex = prev.indexOf(draggingId);
+        if (currentIndex === newIndex) return prev;
+        const next = prev.filter((id) => id !== draggingId);
+        next.splice(newIndex, 0, draggingId);
+        return next;
+      });
+    };
+    const handleUp = () => {
+      setDraggingId(null);
+      setDragOffset(0);
+      setOrder((current) => {
+        onReorder(current);
+        return current;
+      });
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+  }, [draggingId]);
+
+  const startDrag = (id, e) => {
+    e.preventDefault();
+    startYRef.current = e.clientY;
+    startOrderRef.current = order;
+    setDraggingId(id);
+    setDragOffset(0);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {order.map((id) => {
+        const t = todoById[id];
+        if (!t) return null;
+        const isDragging = draggingId === id;
+        return (
+          <div
+            key={id}
+            ref={(el) => { if (el) rowRefs.current[id] = el; }}
+            style={{
+              transform: isDragging ? `translateY(${dragOffset}px)` : "none",
+              position: "relative",
+              zIndex: isDragging ? 10 : 1,
+              boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.18)" : "none",
+              borderRadius: 16,
+              transition: isDragging ? "none" : "transform 0.15s ease",
+            }}
+          >
+            {renderRow(t, { onPointerDown: (e) => startDrag(id, e) })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================================================== */
 /* Day bottom sheet                                                     */
 /* ================================================================== */
-function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAddEvent, onEditEvent, onAddTodo, onEditTodo, onToggleTodo, expandedTodoId, setExpandedTodoId }) {
+function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAddEvent, onEditEvent, onAddTodo, onEditTodo, onToggleTodo, onReorderTodos, expandedTodoId, setExpandedTodoId }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 40, maxWidth: 720, margin: "0 auto" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(51,48,42,0.35)" }} />
@@ -753,7 +860,7 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
               <button key={ev.id} onClick={() => onEditEvent(ev)} style={{ textAlign: "left", border: `1.5px solid ${LINE}`, borderRadius: 16, padding: "11px 13px", background: "#fff", cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "0 2px 0 rgba(184,160,120,0.08)" }}>
                 <span style={{ width: 5, alignSelf: "stretch", borderRadius: 4, background: EVENT_BAR_BG, minHeight: 30 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, color: INK }}>
                     {ev.name || "(제목 없음)"}
                     {ev.seriesId && <Repeat size={11} color={SUBINK} />}
                   </div>
@@ -769,28 +876,35 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
 
           <SectionHeader icon={<ListChecks size={15} />} title="To-do List" onAdd={onAddTodo} />
           {todos.length === 0 && <EmptyRow text="등록된 할 일이 없어요" />}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
-            {todos.map((t) => {
-              const expanded = expandedTodoId === t.id;
-              return (
-                <div key={t.id} style={{ border: `1.5px solid ${LINE}`, borderRadius: 16, background: "#fff", overflow: "hidden", boxShadow: "0 2px 0 rgba(184,160,120,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
-                    <button onClick={() => onToggleTodo(t.id)} style={{ width: 21, height: 21, borderRadius: 99, border: `1.5px solid ${t.done ? ACCENT : "#D8CDB4"}`, background: t.done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-                      {t.done && <Check size={13} color="#fff" />}
-                    </button>
-                    <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 999, flexShrink: 0, background: CATEGORIES[t.category].bg, color: CATEGORIES[t.category].text, fontWeight: 600 }}>
-                      {CATEGORIES[t.category].label}
-                    </span>
-                    <div onClick={() => setExpandedTodoId(expanded ? null : t.id)} style={{ flex: 1, fontSize: 14, textDecoration: t.done ? "line-through" : "none", color: t.done ? SUBINK : INK, cursor: "pointer" }}>
-                      {t.text || "(내용 없음)"}
-                      {t.routineId && <Repeat size={10} style={{ marginLeft: 5, verticalAlign: "middle", color: SUBINK }} />}
+          <div style={{ marginBottom: 22 }}>
+            <DraggableTodoList
+              todos={todos}
+              onReorder={(orderedIds) => onReorderTodos(iso, orderedIds)}
+              renderRow={(t, dragHandleProps) => {
+                const expanded = expandedTodoId === t.id;
+                return (
+                  <div style={{ border: `1.5px solid ${LINE}`, borderRadius: 16, background: "#fff", overflow: "hidden", boxShadow: "0 2px 0 rgba(184,160,120,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
+                      <span {...dragHandleProps} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, flexShrink: 0, color: SUBINK, cursor: "grab", touchAction: "none" }}>
+                        <GripVertical size={15} />
+                      </span>
+                      <button onClick={() => onToggleTodo(t.id)} style={{ width: 21, height: 21, borderRadius: 99, border: `1.5px solid ${t.done ? ACCENT : "#D8CDB4"}`, background: t.done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                        {t.done && <Check size={13} color="#fff" />}
+                      </button>
+                      <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 999, flexShrink: 0, background: CATEGORIES[t.category].bg, color: CATEGORIES[t.category].text, fontWeight: 600 }}>
+                        {CATEGORIES[t.category].label}
+                      </span>
+                      <div onClick={() => setExpandedTodoId(expanded ? null : t.id)} style={{ flex: 1, fontSize: 14, textDecoration: t.done ? "line-through" : "none", color: t.done ? SUBINK : INK, cursor: "pointer" }}>
+                        {t.text || "(내용 없음)"}
+                        {t.routineId && <Repeat size={10} style={{ marginLeft: 5, verticalAlign: "middle", color: SUBINK }} />}
+                      </div>
+                      <button onClick={() => onEditTodo(t)} style={{ border: "none", background: "transparent", color: SUBINK, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>수정</button>
                     </div>
-                    <button onClick={() => onEditTodo(t)} style={{ border: "none", background: "transparent", color: SUBINK, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>수정</button>
+                    {expanded && <div style={{ padding: "0 12px 12px 66px", fontSize: 12, color: SUBINK, lineHeight: 1.5 }}>{t.note ? t.note : "메모 없음"}</div>}
                   </div>
-                  {expanded && <div style={{ padding: "0 12px 12px 42px", fontSize: 12, color: SUBINK, lineHeight: 1.5 }}>{t.note ? t.note : "메모 없음"}</div>}
-                </div>
-              );
-            })}
+                );
+              }}
+            />
           </div>
 
           <div style={{ fontSize: 15, fontFamily: "'Playfair Display', serif", fontWeight: 700, marginBottom: 8, color: INK, display: "flex", alignItems: "center", gap: 5 }}>
@@ -841,7 +955,7 @@ function ModalShell({ title, onClose, children, footer }) {
 
 const fieldLabelStyle = { fontSize: 12.5, fontWeight: 700, color: SUBINK, marginBottom: 6, display: "block" };
 const inputStyle = { width: "100%", border: `1.5px solid ${LINE}`, borderRadius: 14, padding: "10px 12px", fontSize: 14, outline: "none", color: INK, background: "#FDFBF6" };
-const primaryBtnStyle = { width: "100%", background: ACCENT, color: "#fff", border: "none", borderRadius: 999, padding: "13px 0", fontSize: 14.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 0 #5B9A8B" };
+const primaryBtnStyle = { width: "100%", background: ACCENT, color: "#fff", border: "none", borderRadius: 999, padding: "13px 0", fontSize: 14.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 0 #4E3D31" };
 const dangerBtnStyle = { width: "100%", background: "transparent", color: "#C0574C", border: `1.5px dashed #E4C7C2`, borderRadius: 999, padding: "10px 0", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 };
 
 function CategoryPicker({ value, onChange }) {
@@ -860,7 +974,7 @@ function RepeatPicker({ value, onChange }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
       {REPEAT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => onChange(o.key)} style={{ border: value === o.key ? `2px solid ${ACCENT}` : `1px solid ${LINE}`, background: value === o.key ? ACCENT_SOFT : "#fff", color: value === o.key ? "#4E8A7C" : INK, borderRadius: 999, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        <button key={o.key} onClick={() => onChange(o.key)} style={{ border: value === o.key ? `2px solid ${ACCENT}` : `1px solid ${LINE}`, background: value === o.key ? ACCENT_SOFT : "#fff", color: value === o.key ? ACCENT : INK, borderRadius: 999, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
           {o.label}
         </button>
       ))}
@@ -876,6 +990,15 @@ function EventModal({ mode, event, onClose, onSave, onDeleteInstance, onRequestD
   const [repeat, setRepeat] = useState("none");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isSeriesInstance = mode === "edit" && !!form.seriesId;
+  const handleStartChange = (value) => {
+    setForm((f) => {
+      const [h, m] = value.split(":").map(Number);
+      let endH = h + 1;
+      if (endH >= 24) endH -= 24;
+      const end = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      return { ...f, start: value, end };
+    });
+  };
 
   return (
     <ModalShell
@@ -898,7 +1021,7 @@ function EventModal({ mode, event, onClose, onSave, onDeleteInstance, onRequestD
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {isSeriesInstance && (
-          <div style={{ fontSize: 12, color: ACCENT, background: "#EAF2F0", borderRadius: 8, padding: "8px 10px", display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ fontSize: 12, color: ACCENT, background: ACCENT_SOFT, borderRadius: 8, padding: "8px 10px", display: "flex", gap: 6, alignItems: "center" }}>
             <Repeat size={13} /> 반복 일정의 일부예요 · 여기서 수정하면 이 날짜에만 적용돼요
           </div>
         )}
@@ -918,7 +1041,7 @@ function EventModal({ mode, event, onClose, onSave, onDeleteInstance, onRequestD
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={fieldLabelStyle}>시작</label>
-              <input type="time" style={inputStyle} value={form.start} onChange={(e) => set("start", e.target.value)} />
+              <input type="time" style={inputStyle} value={form.start} onChange={(e) => handleStartChange(e.target.value)} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={fieldLabelStyle}>종료</label>
@@ -964,7 +1087,7 @@ function TodoModal({ mode, todo, onClose, onSave, onDelete }) {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {isRoutineInstance && (
-          <div style={{ fontSize: 12, color: ACCENT, background: "#EAF2F0", borderRadius: 8, padding: "8px 10px", display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ fontSize: 12, color: ACCENT, background: ACCENT_SOFT, borderRadius: 8, padding: "8px 10px", display: "flex", gap: 6, alignItems: "center" }}>
             <Repeat size={13} /> 루틴에서 생성됨 · 여기서 수정하면 이 날짜에만 적용돼요
           </div>
         )}
@@ -1000,7 +1123,7 @@ function RoutineScreen({ routines, onBack, onAdd, onEdit }) {
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, fontWeight: 700 }}>Routine</div>
       </div>
       <div style={{ padding: "6px 18px 4px" }}>
-        <button onClick={onAdd} style={{ width: "100%", border: `1.5px dashed ${ACCENT}`, borderRadius: 16, padding: "13px 0", background: ACCENT_SOFT, color: "#4E8A7C", fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "'Playfair Display', serif" }}>
+        <button onClick={onAdd} style={{ width: "100%", border: `1.5px dashed ${ACCENT}`, borderRadius: 16, padding: "13px 0", background: ACCENT_SOFT, color: ACCENT, fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "'Playfair Display', serif" }}>
           <Plus size={16} /> 새 루틴 만들기
         </button>
       </div>
@@ -1010,7 +1133,7 @@ function RoutineScreen({ routines, onBack, onAdd, onEdit }) {
           <button key={r.id} onClick={() => onEdit(r)} style={{ textAlign: "left", border: `1.5px solid ${LINE}`, borderRadius: 16, background: "#fff", padding: "12px 14px", cursor: "pointer", display: "flex", gap: 10, alignItems: "center", boxShadow: "0 2px 0 rgba(184,160,120,0.08)" }}>
             <span style={{ width: 5, alignSelf: "stretch", minHeight: 40, borderRadius: 4, background: CATEGORIES[r.category].dot }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.name || "(이름 없음)"}</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: INK }}>{r.name || "(이름 없음)"}</div>
               <div style={{ fontSize: 12, color: SUBINK, marginTop: 3 }}>
                 {r.days.length === 7 ? "매일" : r.days.length === 0 ? "요일 미설정" : r.days.slice().sort().map((d) => WEEKDAYS[d]).join(", ")}
                 <span style={{ marginLeft: 6, color: CATEGORIES[r.category].text }}>· {CATEGORIES[r.category].label}</span>
