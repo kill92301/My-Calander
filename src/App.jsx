@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, CalendarDays,
   ListChecks, Clock, Check, Grid2x2, Sparkles, Camera, Pencil, GripVertical,
@@ -68,6 +68,15 @@ const addDays = (iso, n) => {
   return toISO(d);
 };
 const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+const dayDiff = (isoA, isoB) => Math.round((parseISO(isoB) - parseISO(isoA)) / 86400000);
+const formatEventDateRange = (ev) => {
+  const start = parseISO(ev.date);
+  const startLabel = `${start.getMonth() + 1}/${start.getDate()}`;
+  if (!ev.endDate || ev.endDate === ev.date) return startLabel;
+  const end = parseISO(ev.endDate);
+  const endLabel = `${end.getMonth() + 1}/${end.getDate()}`;
+  return `${startLabel} ~ ${endLabel}`;
+};
 const formatDayTitle = (iso) => {
   const d = parseISO(iso);
   return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()} · ${WEEKDAYS[d.getDay()]}`;
@@ -164,8 +173,10 @@ function ensureRecurringEvents(seriesList, events, rangeStartISO, rangeEndISO) {
       else if (s.repeat === "yearly") matches = d.getMonth() === start.getMonth() && d.getDate() === Math.min(start.getDate(), daysInMonth(d.getFullYear(), d.getMonth()));
 
       if (matches && !s.excludedDates.includes(cursor) && !existingKey.has(`${s.id}__${cursor}`)) {
+        const durationDays = s.durationDays || 0;
         additions.push({
-          id: `e_${s.id}_${cursor}`, date: cursor, name: s.name, allDay: s.allDay,
+          id: `e_${s.id}_${cursor}`, date: cursor, endDate: durationDays > 0 ? addDays(cursor, durationDays) : cursor,
+          name: s.name, allDay: s.allDay,
           start: s.start, end: s.end, memo: s.memo || "", seriesId: s.id, overridden: false,
         });
         existingKey.add(`${s.id}__${cursor}`);
@@ -199,6 +210,23 @@ export default function App() {
   const [expandedTodoId, setExpandedTodoId] = useState(null);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(null);
   const [confirmDeleteSeries, setConfirmDeleteSeries] = useState(null);
+
+  /* ---- match the browser/OS top status bar to the app background ---- */
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    const prevContent = meta.getAttribute("content");
+    meta.setAttribute("content", PAPER);
+    document.documentElement.style.background = PAPER;
+    document.body.style.background = PAPER;
+    return () => {
+      if (prevContent !== null) meta.setAttribute("content", prevContent);
+    };
+  }, []);
 
   /* ---- load ---- */
   useEffect(() => {
@@ -258,14 +286,17 @@ export default function App() {
   const saveEvent = (form, repeat = "none") => {
     setData((prev) => {
       const exists = prev.events.some((e) => e.id === form.id);
+      const normalizedEndDate = form.endDate && form.endDate >= form.date ? form.endDate : form.date;
       if (!exists && repeat !== "none") {
+        const durationDays = dayDiff(form.date, normalizedEndDate);
         const seriesId = `s_${Date.now()}`;
-        const series = { id: seriesId, name: form.name, allDay: form.allDay, start: form.start, end: form.end, memo: form.memo, repeat, startDate: form.date, excludedDates: [] };
+        const series = { id: seriesId, name: form.name, allDay: form.allDay, start: form.start, end: form.end, memo: form.memo, repeat, startDate: form.date, durationDays, excludedDates: [] };
         const eventSeries = [...prev.eventSeries, series];
         const { events } = ensureRecurringEvents(eventSeries, prev.events, form.date, addDays(form.date, HORIZON_DAYS));
         return { ...prev, eventSeries, events };
       }
-      const finalEvent = exists && form.seriesId ? { ...form, overridden: true } : { ...form, seriesId: form.seriesId || null };
+      const formWithEndDate = { ...form, endDate: normalizedEndDate };
+      const finalEvent = exists && form.seriesId ? { ...formWithEndDate, overridden: true } : { ...formWithEndDate, seriesId: form.seriesId || null };
       const events = exists ? prev.events.map((e) => (e.id === finalEvent.id ? finalEvent : e)) : [...prev.events, finalEvent];
       return { ...prev, events };
     });
@@ -362,7 +393,7 @@ export default function App() {
     });
 
   /* ---------------- derived ---------------- */
-  const eventsFor = useCallback((iso) => data.events.filter((e) => e.date === iso).sort((a, b) => (a.allDay ? -1 : (a.start || "").localeCompare(b.start || ""))), [data.events]);
+  const eventsFor = useCallback((iso) => data.events.filter((e) => e.date <= iso && (e.endDate || e.date) >= iso).sort((a, b) => (a.allDay ? -1 : (a.start || "").localeCompare(b.start || ""))), [data.events]);
   const todosFor = useCallback((iso) => data.todos.filter((t) => t.date === iso).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [data.todos]);
   const todoDotsFor = useCallback((iso) => {
     const cats = new Set();
@@ -430,7 +461,7 @@ export default function App() {
           todos={todosFor(selectedDate)}
           diaryText={data.diary[selectedDate] || ""}
           onDiaryChange={(text) => setDiary(selectedDate, text)}
-          onAddEvent={() => setEventModal({ mode: "add", event: { id: `e_${Date.now()}`, date: selectedDate, name: "", allDay: true, start: "09:00", end: "10:00", memo: "", seriesId: null, overridden: false } })}
+          onAddEvent={() => setEventModal({ mode: "add", event: { id: `e_${Date.now()}`, date: selectedDate, endDate: selectedDate, name: "", allDay: true, start: "09:00", end: "10:00", memo: "", seriesId: null, overridden: false } })}
           onEditEvent={(ev) => setEventModal({ mode: "edit", event: ev })}
           onAddTodo={() => setTodoModal({ mode: "add", todo: { id: `t_${Date.now()}`, date: selectedDate, text: "", category: "etc", note: "", done: false, routineId: null, overridden: false, order: Date.now() } })}
           onEditTodo={(t) => setTodoModal({ mode: "edit", todo: t })}
@@ -536,10 +567,16 @@ function CoverPhoto({ photoDataUrl, onPick, onRemove }) {
   };
 
   return (
-    <div>
+    // A fixed padding-top box (instead of `aspect-ratio`, which some
+    // in-app webviews render inconsistently) guarantees the cover area
+    // is always exactly the same width-to-height ratio and fills the
+    // full width, whether or not a photo has been added. The empty
+    // state's background matches the app's PAPER background so the
+    // very top of the screen never shows a mismatched color.
+    <div style={{ position: "relative", width: "100%", paddingTop: "33.33%", overflow: "hidden", background: photoDataUrl ? "transparent" : PAPER, borderBottom: photoDataUrl ? `1.5px solid ${LINE}` : `1.5px dashed ${LINE}` }}>
       {photoDataUrl ? (
-        <div style={{ position: "relative", width: "100%", aspectRatio: "3/1", overflow: "hidden", borderBottom: `1.5px solid ${LINE}` }}>
-          <img src={photoDataUrl} alt="month cover" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <>
+          <img src={photoDataUrl} alt="month cover" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           <label
             style={{ position: "absolute", right: 12, bottom: 12, width: 34, height: 34, borderRadius: 99, background: "rgba(255,255,255,0.92)", boxShadow: "0 2px 6px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
@@ -552,13 +589,12 @@ function CoverPhoto({ photoDataUrl, onPick, onRemove }) {
           >
             <X size={15} color={INK} />
           </button>
-        </div>
+        </>
       ) : (
         <label
           style={{
-            position: "relative", width: "100%", aspectRatio: "3/1", borderBottom: `1.5px dashed ${LINE}`,
-            background: "#FFFCF6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 6, color: SUBINK, cursor: "pointer",
+            position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 6, color: SUBINK, cursor: "pointer",
           }}
         >
           <input type="file" accept="image/*" onChange={handleFile} style={hiddenInputStyle} />
@@ -749,6 +785,8 @@ function YearScreen({ year, setYear, onBack, onPickMonth, onPickDate, todoDotsFo
 /* ================================================================== */
 /* Draggable to-do list (touch-friendly reorder, no external library)   */
 /* ================================================================== */
+const REORDER_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
 function DraggableTodoList({ todos, onReorder, renderRow }) {
   const [order, setOrder] = useState(() => todos.map((t) => t.id));
   const [draggingId, setDraggingId] = useState(null);
@@ -757,6 +795,7 @@ function DraggableTodoList({ todos, onReorder, renderRow }) {
   const startYRef = useRef(0);
   const startOrderRef = useRef([]);
   const rowHeightRef = useRef(64);
+  const prevTopsRef = useRef({});
 
   const idsKey = todos.map((t) => t.id).join(",");
   useEffect(() => {
@@ -765,6 +804,34 @@ function DraggableTodoList({ todos, onReorder, renderRow }) {
 
   const todoById = {};
   todos.forEach((t) => { todoById[t.id] = t; });
+
+  /* FLIP animation: whenever the order changes (from drag or an outside
+     update), every row that isn't the one actively being dragged glides
+     from its previous position to its new one instead of snapping. */
+  useLayoutEffect(() => {
+    const newTops = {};
+    order.forEach((id) => {
+      const el = rowRefs.current[id];
+      if (el) newTops[id] = el.offsetTop;
+    });
+    order.forEach((id) => {
+      if (id === draggingId) return;
+      const el = rowRefs.current[id];
+      if (!el) return;
+      const prevTop = prevTopsRef.current[id];
+      const newTop = newTops[id];
+      if (prevTop !== undefined && newTop !== undefined && prevTop !== newTop) {
+        const delta = prevTop - newTop;
+        el.style.transition = "none";
+        el.style.transform = `translateY(${delta}px)`;
+        // force reflow so the browser registers the start position before animating
+        void el.offsetHeight;
+        el.style.transition = `transform 0.32s ${REORDER_EASE}`;
+        el.style.transform = "translateY(0px)";
+      }
+    });
+    prevTopsRef.current = newTops;
+  }, [order, draggingId]);
 
   useEffect(() => {
     if (!draggingId) return;
@@ -823,12 +890,13 @@ function DraggableTodoList({ todos, onReorder, renderRow }) {
             key={id}
             ref={(el) => { if (el) rowRefs.current[id] = el; }}
             style={{
-              transform: isDragging ? `translateY(${dragOffset}px)` : "none",
               position: "relative",
               zIndex: isDragging ? 10 : 1,
-              boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.18)" : "none",
+              boxShadow: isDragging ? "0 10px 26px rgba(0,0,0,0.2)" : "none",
               borderRadius: 16,
-              transition: isDragging ? "none" : "transform 0.15s ease",
+              ...(isDragging
+                ? { transform: `translateY(${dragOffset}px) scale(1.015)`, transition: "box-shadow 0.2s ease" }
+                : {}),
             }}
           >
             {renderRow(t, { onPointerDown: (e) => startDrag(id, e) })}
@@ -864,9 +932,12 @@ function DaySheet({ iso, onClose, events, todos, diaryText, onDiaryChange, onAdd
                     {ev.name || "(제목 없음)"}
                     {ev.seriesId && <Repeat size={11} color={SUBINK} />}
                   </div>
-                  <div style={{ fontSize: 12, color: SUBINK, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ fontSize: 12, color: SUBINK, marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                     <Clock size={11} />
                     {ev.allDay ? "하루 종일" : `${ev.start} ~ ${ev.end}`}
+                    {ev.endDate && ev.endDate !== ev.date && (
+                      <span style={{ color: ACCENT, fontWeight: 600 }}>· {formatEventDateRange(ev)}</span>
+                    )}
                   </div>
                   {ev.memo && <div style={{ fontSize: 12, color: SUBINK, marginTop: 4 }}>{ev.memo}</div>}
                 </div>
@@ -986,9 +1057,10 @@ function RepeatPicker({ value, onChange }) {
 /* Event modal                                                          */
 /* ================================================================== */
 function EventModal({ mode, event, onClose, onSave, onDeleteInstance, onRequestDeleteSeries }) {
-  const [form, setForm] = useState(event);
+  const [form, setForm] = useState(() => ({ ...event, endDate: event.endDate || event.date }));
   const [repeat, setRepeat] = useState("none");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setDate = (v) => setForm((f) => ({ ...f, date: v, endDate: f.endDate && f.endDate >= v ? f.endDate : v }));
   const isSeriesInstance = mode === "edit" && !!form.seriesId;
   const handleStartChange = (value) => {
     setForm((f) => {
@@ -1029,9 +1101,15 @@ function EventModal({ mode, event, onClose, onSave, onDeleteInstance, onRequestD
           <label style={fieldLabelStyle}>일정 이름</label>
           <input style={inputStyle} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="예: 팀 회의" />
         </div>
-        <div>
-          <label style={fieldLabelStyle}>날짜</label>
-          <input type="date" style={inputStyle} value={form.date} onChange={(e) => set("date", e.target.value)} />
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={fieldLabelStyle}>시작 날짜</label>
+            <input type="date" style={inputStyle} value={form.date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={fieldLabelStyle}>종료 날짜</label>
+            <input type="date" style={inputStyle} min={form.date} value={form.endDate || form.date} onChange={(e) => set("endDate", e.target.value)} />
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.allDay} onChange={(e) => set("allDay", e.target.checked)} id="allday" style={{ width: 16, height: 16 }} />
