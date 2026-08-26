@@ -166,6 +166,20 @@ function ensureRecurringEvents(seriesList, events, rangeStartISO, rangeEndISO) {
   const existingKey = new Set(events.map((e) => (e.seriesId ? `${e.seriesId}__${e.date}` : "")));
   for (const s of seriesList) {
     const start = parseISO(s.startDate);
+    // Dates already swallowed by a manually-extended (overridden) occurrence
+    // of this same series — skip generating a fresh, separate occurrence
+    // for those, so an extended instance doesn't collide with the next
+    // regularly-scheduled one.
+    const coveredBySpan = new Set();
+    events.forEach((e) => {
+      if (e.seriesId === s.id && e.overridden && e.endDate && e.endDate > e.date) {
+        let c = addDays(e.date, 1);
+        while (c <= e.endDate) {
+          coveredBySpan.add(c);
+          c = addDays(c, 1);
+        }
+      }
+    });
     let cursor = rangeStartISO < s.startDate ? s.startDate : rangeStartISO;
     let guard = 0;
     while (cursor <= rangeEndISO && guard < 500) {
@@ -177,7 +191,7 @@ function ensureRecurringEvents(seriesList, events, rangeStartISO, rangeEndISO) {
       else if (s.repeat === "monthly") matches = d.getDate() === Math.min(start.getDate(), daysInMonth(d.getFullYear(), d.getMonth()));
       else if (s.repeat === "yearly") matches = d.getMonth() === start.getMonth() && d.getDate() === Math.min(start.getDate(), daysInMonth(d.getFullYear(), d.getMonth()));
 
-      if (matches && !s.excludedDates.includes(cursor) && !existingKey.has(`${s.id}__${cursor}`)) {
+      if (matches && !s.excludedDates.includes(cursor) && !coveredBySpan.has(cursor) && !existingKey.has(`${s.id}__${cursor}`)) {
         const durationDays = s.durationDays || 0;
         additions.push({
           id: `e_${s.id}_${cursor}`, date: cursor, endDate: durationDays > 0 ? addDays(cursor, durationDays) : cursor,
@@ -215,6 +229,22 @@ export default function App() {
   const [expandedTodoId, setExpandedTodoId] = useState(null);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(null);
   const [confirmDeleteSeries, setConfirmDeleteSeries] = useState(null);
+
+  /* ---- guarantee full-width rendering everywhere ----
+     Some in-app browsers (chat apps, etc.) ignore or override the page's
+     own viewport meta tag and fall back to a wide virtual viewport, which
+     shrinks this whole app down and centers it with visible side margins.
+     Forcing the tag here on every load keeps the layout full-width and
+     consistent no matter which browser/webview opens the page. */
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "viewport";
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover");
+  }, []);
 
   /* ---- match the browser/OS top status bar to the app background ---- */
   useEffect(() => {
@@ -302,7 +332,18 @@ export default function App() {
       }
       const formWithEndDate = { ...form, endDate: normalizedEndDate };
       const finalEvent = exists && form.seriesId ? { ...formWithEndDate, overridden: true } : { ...formWithEndDate, seriesId: form.seriesId || null };
-      const events = exists ? prev.events.map((e) => (e.id === finalEvent.id ? finalEvent : e)) : [...prev.events, finalEvent];
+      let events = exists ? prev.events.map((e) => (e.id === finalEvent.id ? finalEvent : e)) : [...prev.events, finalEvent];
+      // If this occurrence's date range now stretches past its original day,
+      // drop any other occurrence of the same series that falls inside that
+      // range so it doesn't show up as a separate, overlapping duplicate.
+      if (finalEvent.seriesId && finalEvent.endDate > finalEvent.date) {
+        events = events.filter((e) => (
+          e.id === finalEvent.id ||
+          e.seriesId !== finalEvent.seriesId ||
+          e.date <= finalEvent.date ||
+          e.date > finalEvent.endDate
+        ));
+      }
       return { ...prev, events };
     });
     setEventModal(null);
