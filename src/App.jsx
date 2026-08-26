@@ -68,6 +68,11 @@ const addDays = (iso, n) => {
   return toISO(d);
 };
 const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+const chunk = (arr, size) => {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
 const dayDiff = (isoA, isoB) => Math.round((parseISO(isoB) - parseISO(isoA)) / 86400000);
 const formatEventDateRange = (ev) => {
   const start = parseISO(ev.date);
@@ -653,63 +658,144 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
             </div>
           ))}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
-          {cells.map(({ date, iso, inMonth }) => {
-            const isToday = iso === today;
-            const isSelected = iso === selectedDate;
-            const dow = date.getDay();
-            const dayEvents = eventsFor(iso);
-            const dots = todoDotsFor(iso);
-            return (
-              <button
-                key={iso}
-                onClick={() => setSelectedDate(iso)}
-                style={{
-                  minHeight: 76,
-                  border: isSelected ? `1.5px dashed ${ACCENT}` : "1.5px solid transparent",
-                  background: isSelected ? ACCENT_SOFT : "transparent",
-                  borderRadius: 14, cursor: "pointer", display: "flex", flexDirection: "column",
-                  alignItems: "stretch", padding: "4px 2px", gap: 2, opacity: inMonth ? 1 : 0.3,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <span
-                    style={{
-                      width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: isToday ? 700 : 500,
-                      background: isToday ? ACCENT : "transparent",
-                      color: isToday ? "#fff" : dow === 0 ? "#E19693" : dow === 6 ? "#8CADD6" : INK,
-                    }}
-                  >
-                    {date.getDate()}
-                  </span>
+        {chunk(cells, 7).map((week, wi) => (
+          <WeekRow
+            key={wi}
+            week={week}
+            today={today}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            eventsFor={eventsFor}
+            todoDotsFor={todoDotsFor}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* One week's row: day cells (number + todo dots) with an overlay of
+   continuous, week-spanning event bands drawn on top — so a multi-day
+   event reads as a single strip across its days instead of a repeated
+   pill in every cell. */
+const BAND_TOP = 28;
+const BAND_LANE_HEIGHT = 13;
+const BAND_MAX_LANES = 2;
+
+function WeekRow({ week, today, selectedDate, setSelectedDate, eventsFor, todoDotsFor }) {
+  const weekStart = week[0].iso;
+  const weekEnd = week[6].iso;
+
+  const seen = new Set();
+  const weekEvents = [];
+  week.forEach(({ iso }) => {
+    eventsFor(iso).forEach((ev) => {
+      if (!seen.has(ev.id)) {
+        seen.add(ev.id);
+        weekEvents.push(ev);
+      }
+    });
+  });
+  weekEvents.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    const da = dayDiff(a.date, a.endDate || a.date);
+    const db = dayDiff(b.date, b.endDate || b.date);
+    return db - da;
+  });
+
+  // Greedy lane packing so overlapping events stack instead of colliding.
+  const laneEndCols = [];
+  const segments = [];
+  weekEvents.forEach((ev) => {
+    const evEnd = ev.endDate || ev.date;
+    const segStartISO = ev.date > weekStart ? ev.date : weekStart;
+    const segEndISO = evEnd < weekEnd ? evEnd : weekEnd;
+    const startCol = week.findIndex((c) => c.iso === segStartISO);
+    const endCol = week.findIndex((c) => c.iso === segEndISO);
+    if (startCol === -1 || endCol === -1) return;
+    let lane = laneEndCols.findIndex((endC) => endC < startCol);
+    if (lane === -1) { lane = laneEndCols.length; laneEndCols.push(endCol); }
+    else laneEndCols[lane] = endCol;
+    segments.push({
+      ev, startCol, span: endCol - startCol + 1, lane,
+      continuesLeft: ev.date < weekStart, continuesRight: evEnd > weekEnd,
+    });
+  });
+
+  const overflowCountByCol = week.map((_, colIndex) =>
+    segments.filter((s) => s.lane >= BAND_MAX_LANES && colIndex >= s.startCol && colIndex < s.startCol + s.span).length
+  );
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+        {week.map(({ date, iso, inMonth }, colIndex) => {
+          const isToday = iso === today;
+          const isSelected = iso === selectedDate;
+          const dow = date.getDay();
+          const dots = todoDotsFor(iso);
+          const overflow = overflowCountByCol[colIndex];
+          return (
+            <button
+              key={iso}
+              onClick={() => setSelectedDate(iso)}
+              style={{
+                minHeight: 76,
+                border: isSelected ? `1.5px dashed ${ACCENT}` : "1.5px solid transparent",
+                background: isSelected ? ACCENT_SOFT : "transparent",
+                borderRadius: 14, cursor: "pointer", position: "relative",
+                padding: "4px 2px", opacity: inMonth ? 1 : 0.3,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <span
+                  style={{
+                    width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: isToday ? 700 : 500,
+                    background: isToday ? ACCENT : "transparent",
+                    color: isToday ? "#fff" : dow === 0 ? "#E19693" : dow === 6 ? "#8CADD6" : INK,
+                  }}
+                >
+                  {date.getDate()}
+                </span>
+              </div>
+              {overflow > 0 && (
+                <div style={{ position: "absolute", top: BAND_TOP + BAND_MAX_LANES * BAND_LANE_HEIGHT - 2, left: 0, right: 0, textAlign: "center", fontSize: 7, color: SUBINK }}>
+                  +{overflow}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  {dayEvents.slice(0, 2).map((ev) => (
-                    <span
-                      key={ev.id}
-                      style={{
-                        fontSize: 7.5, lineHeight: "11px", padding: "1px 3px", borderRadius: 3,
-                        background: EVENT_BAR_BG, color: EVENT_BAR_TEXT, whiteSpace: "nowrap",
-                        overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600,
-                      }}
-                    >
-                      {formatEventBarLabel(ev)}
-                    </span>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <span style={{ fontSize: 7, color: SUBINK, textAlign: "center" }}>+{dayEvents.length - 2}</span>
-                  )}
+              )}
+              {dots.length > 0 && (
+                <div style={{ position: "absolute", bottom: 4, left: 0, right: 0, display: "flex", gap: 2, justifyContent: "center" }}>
+                  {dots.map((c) => <span key={c} style={{ width: 4, height: 4, borderRadius: 99, background: CATEGORIES[c].dot, display: "inline-block" }} />)}
                 </div>
-                {dots.length > 0 && (
-                  <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: "auto", paddingTop: 2 }}>
-                    {dots.map((c) => <span key={c} style={{ width: 4, height: 4, borderRadius: 99, background: CATEGORIES[c].dot, display: "inline-block" }} />)}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ position: "absolute", top: BAND_TOP, left: 0, right: 0, height: BAND_MAX_LANES * BAND_LANE_HEIGHT, pointerEvents: "none" }}>
+        {segments.filter((s) => s.lane < BAND_MAX_LANES).map((s, i) => (
+          <div
+            key={`${s.ev.id}_${i}`}
+            onClick={() => setSelectedDate(s.ev.date)}
+            title={s.ev.name}
+            style={{
+              position: "absolute",
+              left: `calc(${(s.startCol / 7) * 100}% + 1px)`,
+              width: `calc(${(s.span / 7) * 100}% - 3px)`,
+              top: s.lane * BAND_LANE_HEIGHT,
+              height: BAND_LANE_HEIGHT - 2,
+              fontSize: 7.5, lineHeight: `${BAND_LANE_HEIGHT - 2}px`, padding: "0 4px",
+              background: EVENT_BAR_BG, color: EVENT_BAR_TEXT, whiteSpace: "nowrap",
+              overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600,
+              pointerEvents: "auto", cursor: "pointer",
+              borderTopLeftRadius: s.continuesLeft ? 0 : 5, borderBottomLeftRadius: s.continuesLeft ? 0 : 5,
+              borderTopRightRadius: s.continuesRight ? 0 : 5, borderBottomRightRadius: s.continuesRight ? 0 : 5,
+            }}
+          >
+            {formatEventBarLabel(s.ev)}
+          </div>
+        ))}
       </div>
     </div>
   );
