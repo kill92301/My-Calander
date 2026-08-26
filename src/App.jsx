@@ -719,8 +719,8 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
    continuous, week-spanning event bands drawn on top — so a multi-day
    event reads as a single strip across its days instead of a repeated
    pill in every cell. */
-const BAND_TOP = 28;
-const BAND_LANE_HEIGHT = 13;
+const BAND_TOP = 31;
+const BAND_LANE_HEIGHT = 14;
 const BAND_MAX_LANES = 2;
 
 function WeekRow({ week, today, selectedDate, setSelectedDate, eventsFor, todoDotsFor }) {
@@ -781,7 +781,7 @@ function WeekRow({ week, today, selectedDate, setSelectedDate, eventsFor, todoDo
               key={iso}
               onClick={() => setSelectedDate(iso)}
               style={{
-                minHeight: 76,
+                minHeight: 80,
                 border: isSelected ? `1.5px dashed ${ACCENT}` : "1.5px solid transparent",
                 background: isSelected ? ACCENT_SOFT : "transparent",
                 borderRadius: 14, cursor: "pointer", position: "relative",
