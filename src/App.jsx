@@ -719,7 +719,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
    continuous, week-spanning event bands drawn on top — so a multi-day
    event reads as a single strip across its days instead of a repeated
    pill in every cell. */
-const BAND_TOP = 33;
+const BAND_TOP = 31;
 const BAND_LANE_HEIGHT = 14;
 const BAND_MAX_LANES = 2;
 
