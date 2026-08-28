@@ -166,10 +166,6 @@ function ensureRecurringEvents(seriesList, events, rangeStartISO, rangeEndISO) {
   const existingKey = new Set(events.map((e) => (e.seriesId ? `${e.seriesId}__${e.date}` : "")));
   for (const s of seriesList) {
     const start = parseISO(s.startDate);
-    // Dates already swallowed by a manually-extended (overridden) occurrence
-    // of this same series — skip generating a fresh, separate occurrence
-    // for those, so an extended instance doesn't collide with the next
-    // regularly-scheduled one.
     const coveredBySpan = new Set();
     events.forEach((e) => {
       if (e.seriesId === s.id && e.overridden && e.endDate && e.endDate > e.date) {
@@ -333,9 +329,6 @@ export default function App() {
       const formWithEndDate = { ...form, endDate: normalizedEndDate };
       const finalEvent = exists && form.seriesId ? { ...formWithEndDate, overridden: true } : { ...formWithEndDate, seriesId: form.seriesId || null };
       let events = exists ? prev.events.map((e) => (e.id === finalEvent.id ? finalEvent : e)) : [...prev.events, finalEvent];
-      // If this occurrence's date range now stretches past its original day,
-      // drop any other occurrence of the same series that falls inside that
-      // range so it doesn't show up as a separate, overlapping duplicate.
       if (finalEvent.seriesId && finalEvent.endDate > finalEvent.date) {
         events = events.filter((e) => (
           e.id === finalEvent.id ||
@@ -613,12 +606,6 @@ function CoverPhoto({ photoDataUrl, onPick, onRemove }) {
   };
 
   return (
-    // A fixed padding-top box (instead of `aspect-ratio`, which some
-    // in-app webviews render inconsistently) guarantees the cover area
-    // is always exactly the same width-to-height ratio and fills the
-    // full width, whether or not a photo has been added. The empty
-    // state's background matches the app's PAPER background so the
-    // very top of the screen never shows a mismatched color.
     <div style={{ position: "relative", width: "100%", paddingTop: "33.33%", overflow: "hidden", background: photoDataUrl ? "transparent" : PAPER, borderBottom: photoDataUrl ? `1.5px solid ${LINE}` : `1.5px dashed ${LINE}` }}>
       {photoDataUrl ? (
         <>
@@ -719,7 +706,7 @@ function CalendarScreen({ monthCursor, setMonthCursor, selectedDate, setSelected
    continuous, week-spanning event bands drawn on top — so a multi-day
    event reads as a single strip across its days instead of a repeated
    pill in every cell. */
-const BAND_TOP = 31;
+const BAND_TOP = 33;
 const BAND_LANE_HEIGHT = 14;
 const BAND_MAX_LANES = 2;
 
@@ -788,13 +775,14 @@ function WeekRow({ week, today, selectedDate, setSelectedDate, eventsFor, todoDo
                 padding: "4px 2px", opacity: inMonth ? 1 : 0.3,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{ display: "flex", justifyContent: "center", height: 26, overflow: "hidden" }}>
                 <span
                   style={{
                     width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",
                     fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: isToday ? 700 : 500,
                     background: isToday ? ACCENT : "transparent",
                     color: isToday ? "#fff" : dow === 0 ? "#E19693" : dow === 6 ? "#8CADD6" : INK,
+                    overflow: "hidden", lineHeight: 1,
                   }}
                 >
                   {date.getDate()}
